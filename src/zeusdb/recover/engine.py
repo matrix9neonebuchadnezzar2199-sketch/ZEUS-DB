@@ -19,6 +19,7 @@ from zeusdb.recover.convert import cell_to_record
 from zeusdb.recover.dropped_table import recover_dropped_table_artifacts
 from zeusdb.recover.freeblock import recover_freeblocks
 from zeusdb.recover.freelist import recover_freelist_pages
+from zeusdb.recover.journal import recover_journal_records
 from zeusdb.recover.unallocated import recover_unallocated
 
 
@@ -137,6 +138,17 @@ def recover_deleted_records(
             records.extend(
                 carve_pages_boyer_moore(
                     base_version,
+                    entry,
+                    signature,
+                    text_encoding=text_encoding,
+                    source_sha256=source_sha256,
+                )
+            )
+
+        if bundle.rollback_journal is not None:
+            records.extend(
+                recover_journal_records(
+                    bundle,
                     entry,
                     signature,
                     text_encoding=text_encoding,
