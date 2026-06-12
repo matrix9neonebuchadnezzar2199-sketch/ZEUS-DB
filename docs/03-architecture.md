@@ -7,11 +7,11 @@
   ↓
 Reader Layer     … sqlite-dissect fork（read-only パース）
   ↓
-Version Layer    … WAL/journal を commit 単位で版管理
+Version Layer    … WAL を commit 単位で版管理（journal は存在検出のみ）
   ↓
 Recovery Layer   … 削除レコード復元（複数アルゴリズム）
   ↓
-Salvage Layer    … 破損 DB 救出（オプション）
+Salvage Layer    … 破損 DB トリアージ（非空ページ検出。セル復元ではない）
   ↓
 Output Layer     … provenance 付き JSON / TSV / CASE
   ↓

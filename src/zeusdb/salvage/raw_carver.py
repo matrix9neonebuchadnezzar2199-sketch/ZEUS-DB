@@ -54,7 +54,7 @@ def salvage_raw_pages(
                     algorithm="undark-sqbrite-raw-page-scan",
                     page_number=page_index + 1,
                     file_offset=offset,
-                    confidence=min(0.5 + ratio / 2, 0.95),
+                    confidence=min(0.35 + ratio * 0.15, 0.5),
                     notes="Non-empty page region salvaged from raw file",
                 ),
             )

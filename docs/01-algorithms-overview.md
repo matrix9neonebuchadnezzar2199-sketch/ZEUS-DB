@@ -12,7 +12,7 @@ SQLite は `DELETE` しても、多くの場合 **セル本体のバイト列は
 | **Unallocated space** | セルポインタ配列とコンテンツ領域の間の隙間。defrag 後の断片もここに |
 | **Freelist page** | 再利用待ちページ。過去のレコード断片が残ることがある |
 | **WAL (`-wal`)** | 本体 DB に checkpoint されていない最新書き込み |
-| **Rollback journal (`-journal`)** | WAL 以前や特殊状況下の変更履歴 |
+| **Rollback journal (`-journal`)** | WAL 以前や特殊状況下の変更履歴。**v1 では存在検出とタイムライン注記のみ**（journal からのカービングは未実装） |
 
 ## 処理パイプライン
 
@@ -117,7 +117,19 @@ flowchart LR
 - **要点**: ページ単位の non-zero バイト比率が閾値超なら `__salvage__` 疑似行として記録。行レベル完全復元ではなく「データ残存領域の地図」
 - **実装**: `salvage/raw_carver.py`（`--salvage` 時のみ）
 - **algorithm**: `undark-sqbrite-raw-page-scan`
-- **confidence**: 0.5〜0.95（非ゼロ率に比例）
+- **confidence**: 0.35〜0.50（非ゼロ率に比例。**セル未解析のため上限 0.50**）
+
+## 列値のデコード（TEXT / BLOB）
+
+`recover/convert.py` は sqlite-dissect の **serial type** に基づき列値を正規化します。
+
+- **TEXT**（serial type ≧ 13 かつ奇数）: DB ヘッダのエンコーディング（UTF-8 / UTF-16le / UTF-16be）で復号
+- **BLOB**（serial type ≧ 12 かつ偶数）: 生バイトを base64 ラッパー `{"__type__":"blob",...}` で保全（JSON）。TSV では `base64:...` に平坦化
+- serial type 不明時: TEXT 復号を試行し、置換文字が多い場合は BLOB として保全
+
+## Dedupe（重複除去）
+
+`recover/engine.py` の dedupe は **同一内容かつ同一物理位置（page / offset / version）** のみを除去します。別オフセットに同一内容が残る場合は両方保持します（フォレンジック上の情報）。複数出現箇所の集約（provenance リスト化）は v1.1 予定。
 
 ## Signature（列型フィンガープリント）
 
