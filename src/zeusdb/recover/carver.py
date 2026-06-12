@@ -52,6 +52,8 @@ def carve_pages_boyer_moore(
     version: Any,
     master_schema_entry: Any,
     signature: Any,
+    *,
+    text_encoding: str = "UTF-8",
 ) -> list[NormalizedRecord]:
     """Scan raw page bytes for signature anchors and carve nearby cells."""
     from sqlite_dissect.carving.carver import SignatureCarver
@@ -85,6 +87,7 @@ def carve_pages_boyer_moore(
                         algorithm="fqlite-boyer-moore+sqlite-dissect",
                         is_live=False,
                         is_deleted=True,
+                        text_encoding=text_encoding,
                         version=getattr(version, "version_number", 0),
                         confidence=0.7,
                     )

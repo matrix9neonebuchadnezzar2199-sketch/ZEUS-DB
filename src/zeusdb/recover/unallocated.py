@@ -17,6 +17,8 @@ def recover_unallocated(
     version: Any,
     master_schema_entry: Any,
     signature: Any,
+    *,
+    text_encoding: str = "UTF-8",
 ) -> list[NormalizedRecord]:
     """Recover deleted records from page unallocated regions."""
     records: list[NormalizedRecord] = []
@@ -41,6 +43,7 @@ def recover_unallocated(
                     algorithm="bring2lite-unallocated+sqlite-dissect",
                     is_live=False,
                     is_deleted=True,
+                    text_encoding=text_encoding,
                     version=getattr(version, "version_number", 0),
                     confidence=0.8,
                 )

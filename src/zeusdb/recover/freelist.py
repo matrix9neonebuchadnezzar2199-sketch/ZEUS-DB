@@ -15,6 +15,8 @@ def recover_freelist_pages(
     version: Any,
     master_schema_entry: Any,
     signature: Any,
+    *,
+    text_encoding: str = "UTF-8",
 ) -> list[NormalizedRecord]:
     """Carve deleted records from freelist trunk and leaf pages."""
     records: list[NormalizedRecord] = []
@@ -24,10 +26,26 @@ def recover_freelist_pages(
         trunk_page = version.get_page(trunk_number)
         if trunk_page.page_type == PAGE_TYPE.FREELIST_TRUNK:
             for leaf_page in trunk_page.freelist_leaf_pages:
-                records.extend(_carve_freelist_page(version, leaf_page, master_schema_entry, signature))
+                records.extend(
+                    _carve_freelist_page(
+                        version,
+                        leaf_page,
+                        master_schema_entry,
+                        signature,
+                        text_encoding=text_encoding,
+                    )
+                )
             trunk_number = trunk_page.next_freelist_trunk_page_number
         elif trunk_page.page_type == PAGE_TYPE.FREELIST_LEAF:
-            records.extend(_carve_freelist_page(version, trunk_page, master_schema_entry, signature))
+            records.extend(
+                _carve_freelist_page(
+                    version,
+                    trunk_page,
+                    master_schema_entry,
+                    signature,
+                    text_encoding=text_encoding,
+                )
+            )
             break
         else:
             break
@@ -40,6 +58,8 @@ def _carve_freelist_page(
     page: Any,
     master_schema_entry: Any,
     signature: Any,
+    *,
+    text_encoding: str = "UTF-8",
 ) -> list[NormalizedRecord]:
     """Carve unallocated bytes on a freelist page."""
     records: list[NormalizedRecord] = []
@@ -65,6 +85,7 @@ def _carve_freelist_page(
                 algorithm="bring2lite-freelist+sqlite-dissect",
                 is_live=False,
                 is_deleted=True,
+                text_encoding=text_encoding,
                 version=getattr(version, "version_number", 0),
                 confidence=0.75,
             )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from sqlite_dissect.carving.signature import Signature
@@ -44,6 +45,7 @@ def recover_live_records(
     """Extract all live rows from the base database version."""
     records: list[NormalizedRecord] = []
     base_version = bundle.version_history.versions[BASE_VERSION_NUMBER]
+    text_encoding = bundle.encoding
 
     for entry in base_version.master_schema.master_schema_entries:
         if entry.row_type != MASTER_SCHEMA_ROW_TYPE.TABLE:
@@ -67,6 +69,7 @@ def recover_live_records(
                     algorithm="sqlite-dissect-live",
                     is_live=True,
                     is_deleted=False,
+                    text_encoding=text_encoding,
                     version=BASE_VERSION_NUMBER,
                 )
             )
@@ -83,6 +86,7 @@ def recover_deleted_records(
     """Run all deletion recovery algorithms for supported tables."""
     records: list[NormalizedRecord] = []
     base_version = bundle.version_history.versions[BASE_VERSION_NUMBER]
+    text_encoding = bundle.encoding
 
     for entry in base_version.master_schema.master_schema_entries:
         if entry.row_type != MASTER_SCHEMA_ROW_TYPE.TABLE:
@@ -98,12 +102,16 @@ def recover_deleted_records(
         if signature is None:
             continue
 
-        records.extend(recover_freeblocks(base_version, entry, signature))
-        records.extend(recover_unallocated(base_version, entry, signature))
+        records.extend(recover_freeblocks(base_version, entry, signature, text_encoding=text_encoding))
+        records.extend(recover_unallocated(base_version, entry, signature, text_encoding=text_encoding))
         if carve_freelist:
-            records.extend(recover_freelist_pages(base_version, entry, signature))
+            records.extend(
+                recover_freelist_pages(base_version, entry, signature, text_encoding=text_encoding)
+            )
         if boyer_moore:
-            records.extend(carve_pages_boyer_moore(base_version, entry, signature))
+            records.extend(
+                carve_pages_boyer_moore(base_version, entry, signature, text_encoding=text_encoding)
+            )
 
         parser = VersionHistoryParser(
             bundle.version_history,
@@ -123,6 +131,7 @@ def recover_deleted_records(
                         algorithm="sqlite-dissect-version-carve",
                         is_live=False,
                         is_deleted=True,
+                        text_encoding=text_encoding,
                         version=commit.version_number,
                         confidence=0.9,
                     )
