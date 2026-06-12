@@ -12,4 +12,4 @@ htmlcov/
 *.db
 *.db-wal
 *.db-journal
-output/
+/output/
