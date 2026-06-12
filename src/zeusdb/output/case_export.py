@@ -25,6 +25,7 @@ def export_case(result: AnalysisResult, output_path: str | Path) -> Path:
             "version": "0.1.0",
             "engine": "sqlite-dissect-core",
         },
+        "zeusdb:source_sha256": result.metadata.get("source_sha256"),
     }
 
     import json

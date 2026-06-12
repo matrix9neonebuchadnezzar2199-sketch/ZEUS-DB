@@ -127,9 +127,31 @@ flowchart LR
 - **BLOB**（serial type ≧ 12 かつ偶数）: 生バイトを base64 ラッパー `{"__type__":"blob",...}` で保全（JSON）。TSV では `base64:...` に平坦化
 - serial type 不明時: TEXT 復号を試行し、置換文字が多い場合は BLOB として保全
 
-## Dedupe（重複除去）
+## 論理レコード集約（schema 1.1）
 
-`recover/engine.py` の dedupe は **同一内容かつ同一物理位置（page / offset / version）** のみを除去します。別オフセットに同一内容が残る場合は両方保持します（フォレンジック上の情報）。複数出現箇所の集約（provenance リスト化）は v1.1 予定。
+`recover/engine.py` の `finalize_records` が live + deleted + salvage を結合後に集約します。
+
+- **集約キー**: `table_name` + `row_id`（`row_id` なしは列 fingerprint）
+- **出力**: 1 論理レコード + `provenances: list[Provenance]`（複数物理出現）
+- **重複除去**: 同一 `occurrence_id` の provenance のみマージ
+
+## 決定論的 ID（schema 1.1）
+
+`identity.py` が uuid5 で導出します（ランダム UUID 禁止）。
+
+| ID | 粒度 | 導出 |
+|----|------|------|
+| `occurrence_id` | 物理出現 | `uuid5(NS, source_sha256\|source\|page\|offset\|version\|row_id)` |
+| `record_id` | 論理レコード | `uuid5(NS, source_sha256\|table\|row_id or columns_fingerprint)` |
+
+`metadata.source_sha256`（および WAL/journal ハッシュ）は完全性証明と ID 導出の両方に使用します。同一 DB を再解析すると同一 ID が再現されます。
+
+## confidence 集約規約（schema 1.1）
+
+レコード単位 `confidence` は **`provenances[].source` を正** とします（`is_live` フラグより優先）。
+
+- いずれかの provenance が `live` → レコード confidence = **1.0**
+- それ以外 → 各 provenance confidence の **最大値**
 
 ## Signature（列型フィンガープリント）
 
@@ -150,6 +172,7 @@ flowchart LR
 | `page_number` | ページ番号 |
 | `file_offset` | ファイル内オフセット |
 | `version` | WAL 版番号（0 = 本体 DB） |
-| `confidence` | 復元信頼度（0.0〜1.0） |
+| `confidence` | 出現別信頼度（0.0〜1.0） |
+| `occurrence_id` | 物理出現の決定論的 UUID（schema 1.1） |
 
-報告書では **algorithm + confidence + page/offset** を併記すると、根拠を説明しやすくなります。
+論理レコードには `record_id`（決定論的 UUID）と集約後 `confidence` があります。

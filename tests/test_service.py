@@ -22,5 +22,5 @@ def test_analyze_upload(sample_db):
         )
     assert response.status_code == 200
     payload = response.json()
-    assert payload["schema_version"] == "1.0"
+    assert payload["schema_version"] == "1.1"
     assert payload["summary"]["live_records"] >= 2

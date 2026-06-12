@@ -37,13 +37,13 @@ ZEUS-DB/
 └── docs/                      # 本ドキュメント群
 ```
 
-## データ契約（JSON schema 1.0）
+## データ契約（JSON schema 1.1）
 
 `AnalysisResult.to_dict()` の主要フィールド:
 
 | フィールド | 型 | 説明 |
 |-----------|-----|------|
-| `schema_version` | `"1.0"` | 契約バージョン |
+| `schema_version` | `"1.1"` | 契約バージョン |
 | `database_path` | string | 本体 DB パス |
 | `wal_path` / `journal_path` | string \| null | サイドカー |
 | `page_size` / `encoding` | number / string | ヘッダ情報 |

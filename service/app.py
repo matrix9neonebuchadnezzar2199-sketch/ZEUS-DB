@@ -98,8 +98,9 @@ def analyze_text_summary(request: AnalyzeRequest) -> dict[str, str]:
     ]
     for record in result.records:
         cols = ", ".join(f"{k}={v!r}" for k, v in record.columns.items())
+        sources = ";".join(p.source.value for p in record.provenances)
         lines.append(
-            f"[{record.provenance.source.value}] {record.table_name} "
+            f"[{sources}] {record.table_name} "
             f"row_id={record.row_id} {cols}"
         )
     return {"text": "\n".join(lines), "json": result_to_json_string(result)}

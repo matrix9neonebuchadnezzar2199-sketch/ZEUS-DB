@@ -14,7 +14,7 @@ def test_json_export_schema(sample_db, tmp_path: Path):
     result = engine.analyze(sample_db, AnalyzeOptions(carve=True))
     out = export_json(result, tmp_path / "out.json")
     payload = json.loads(out.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "1.0"
+    assert payload["schema_version"] == "1.1"
     assert "records" in payload
     assert "summary" in payload
 
