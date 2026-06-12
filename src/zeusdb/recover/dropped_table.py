@@ -51,7 +51,7 @@ def recover_dropped_table_artifacts(
                     columns={"sql_fragment": match.group(0).decode("utf-8", errors="replace")},
                     is_live=False,
                     is_deleted=True,
-                    provenance=provenance,
+                    provenances=[provenance],
                 )
             )
     return records

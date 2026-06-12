@@ -48,22 +48,24 @@ class NormalizedRecord:
 
     table_name: str
     columns: dict[str, Any]
+    provenances: list[Provenance] = field(default_factory=list)
     row_id: int | None = None
     is_live: bool = False
     is_deleted: bool = False
-    provenance: Provenance = field(
-        default_factory=lambda: Provenance(source=RecordSource.LIVE, algorithm="unknown")
-    )
+    record_id: str = ""
+    confidence: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize record for JSON export."""
         return {
+            "record_id": self.record_id,
             "table_name": self.table_name,
             "row_id": self.row_id,
             "columns": self.columns,
             "is_live": self.is_live,
             "is_deleted": self.is_deleted,
-            "provenance": self.provenance.to_dict(),
+            "confidence": self.confidence,
+            "provenances": [provenance.to_dict() for provenance in self.provenances],
         }
 
 
@@ -99,7 +101,7 @@ class AnalysisResult:
     def to_dict(self) -> dict[str, Any]:
         """Serialize full analysis result."""
         return {
-            "schema_version": "1.0",
+            "schema_version": "1.1",
             "database_path": self.database_path,
             "wal_path": self.wal_path,
             "journal_path": self.journal_path,

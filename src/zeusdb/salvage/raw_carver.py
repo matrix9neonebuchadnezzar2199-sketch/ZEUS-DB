@@ -51,22 +51,24 @@ def salvage_raw_pages(
                 },
                 is_live=False,
                 is_deleted=True,
-                provenance=Provenance(
-                    source=RecordSource.SALVAGE,
-                    algorithm="undark-sqbrite-raw-page-scan",
-                    page_number=page_index + 1,
-                    file_offset=offset,
-                    confidence=min(0.35 + ratio * 0.15, 0.5),
-                    notes="Non-empty page region salvaged from raw file",
-                    occurrence_id=derive_occurrence_id(
-                        source_sha256=source_sha256,
-                        source=RecordSource.SALVAGE.value,
+                provenances=[
+                    Provenance(
+                        source=RecordSource.SALVAGE,
+                        algorithm="undark-sqbrite-raw-page-scan",
                         page_number=page_index + 1,
                         file_offset=offset,
-                        version=None,
-                        row_id=None,
-                    ),
-                ),
+                        confidence=min(0.35 + ratio * 0.15, 0.5),
+                        notes="Non-empty page region salvaged from raw file",
+                        occurrence_id=derive_occurrence_id(
+                            source_sha256=source_sha256,
+                            source=RecordSource.SALVAGE.value,
+                            page_number=page_index + 1,
+                            file_offset=offset,
+                            version=None,
+                            row_id=None,
+                        ),
+                    )
+                ],
             )
         )
     return records

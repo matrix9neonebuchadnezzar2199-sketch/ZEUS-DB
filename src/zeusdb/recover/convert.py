@@ -155,5 +155,5 @@ def cell_to_record(
         columns=_column_map(cell, master_schema_entry, text_encoding=text_encoding),
         is_live=is_live,
         is_deleted=is_deleted,
-        provenance=provenance,
+        provenances=[provenance],
     )

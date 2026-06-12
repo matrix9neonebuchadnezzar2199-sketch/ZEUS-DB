@@ -7,7 +7,7 @@ from pathlib import Path
 
 from zeusdb.models import AnalysisResult
 from zeusdb.reader.database import ArtifactBundle, close_artifacts, list_table_names, open_artifacts
-from zeusdb.recover.engine import recover_deleted_records, recover_live_records
+from zeusdb.recover.engine import finalize_records, recover_deleted_records, recover_live_records
 from zeusdb.salvage.raw_carver import salvage_raw_pages
 from zeusdb.version.timeline import build_timeline
 
@@ -82,6 +82,8 @@ class ForensicEngine:
                     source_sha256=bundle.source_sha256,
                 )
             )
+
+        records = finalize_records(records, bundle.source_sha256)
 
         return AnalysisResult(
             database_path=str(bundle.database_path),

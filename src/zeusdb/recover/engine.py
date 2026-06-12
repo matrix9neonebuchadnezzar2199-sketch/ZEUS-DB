@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from sqlite_dissect.carving.signature import Signature
@@ -12,7 +11,8 @@ from sqlite_dissect.file.schema.master import OrdinaryTableRow
 from sqlite_dissect.interface import create_table_signature
 from sqlite_dissect.version_history import VersionHistoryParser
 
-from zeusdb.models import NormalizedRecord, RecordSource
+from zeusdb.identity import aggregate_key, record_id as derive_record_id
+from zeusdb.models import NormalizedRecord, Provenance, RecordSource
 from zeusdb.reader.database import ArtifactBundle
 from zeusdb.recover.carver import carve_pages_boyer_moore
 from zeusdb.recover.convert import cell_to_record
@@ -105,8 +105,24 @@ def recover_deleted_records(
         if signature is None:
             continue
 
-        records.extend(recover_freeblocks(base_version, entry, signature, text_encoding=text_encoding, source_sha256=source_sha256))
-        records.extend(recover_unallocated(base_version, entry, signature, text_encoding=text_encoding, source_sha256=source_sha256))
+        records.extend(
+            recover_freeblocks(
+                base_version,
+                entry,
+                signature,
+                text_encoding=text_encoding,
+                source_sha256=source_sha256,
+            )
+        )
+        records.extend(
+            recover_unallocated(
+                base_version,
+                entry,
+                signature,
+                text_encoding=text_encoding,
+                source_sha256=source_sha256,
+            )
+        )
         if carve_freelist:
             records.extend(
                 recover_freelist_pages(
@@ -160,32 +176,86 @@ def recover_deleted_records(
             source_sha256=bundle.source_sha256,
         )
     )
-    return _dedupe_records(records)
+    return records
 
 
-def _dedupe_key(record: NormalizedRecord) -> str:
-    """Build a stable dedupe fingerprint including physical location."""
-    provenance = record.provenance
-    columns_json = json.dumps(record.columns, sort_keys=True, default=str)
-    return (
-        f"{record.table_name}|{record.row_id}|{columns_json}|"
-        f"{provenance.source}|{provenance.page_number}|"
-        f"{provenance.file_offset}|{provenance.version}"
-    )
-
-
-def _dedupe_records(records: list[NormalizedRecord]) -> list[NormalizedRecord]:
-    """Remove duplicate recovered rows with identical content and physical location.
-
-    TODO(v1.1): aggregate multiple provenance locations for identical content
-    instead of keeping separate records.
-    """
-    seen: set[str] = set()
-    unique: list[NormalizedRecord] = []
-    for record in records:
-        key = _dedupe_key(record)
-        if key in seen:
+def _merge_provenance(
+    target: NormalizedRecord,
+    incoming: NormalizedRecord,
+    seen_occurrence_ids: set[str],
+) -> None:
+    """Append unique provenances from incoming into target."""
+    for provenance in incoming.provenances:
+        occurrence = provenance.occurrence_id
+        if occurrence and occurrence in seen_occurrence_ids:
             continue
-        seen.add(key)
-        unique.append(record)
-    return unique
+        if occurrence:
+            seen_occurrence_ids.add(occurrence)
+        target.provenances.append(provenance)
+
+
+def _aggregate_records(records: list[NormalizedRecord]) -> list[NormalizedRecord]:
+    """Aggregate logical records and merge physical provenances."""
+    grouped: dict[str, NormalizedRecord] = {}
+    seen_occurrence: dict[str, set[str]] = {}
+
+    for record in records:
+        key = aggregate_key(record.table_name, record.row_id, record.columns)
+        if key not in grouped:
+            grouped[key] = NormalizedRecord(
+                table_name=record.table_name,
+                row_id=record.row_id,
+                columns=record.columns,
+                is_live=record.is_live,
+                is_deleted=record.is_deleted,
+                provenances=list(record.provenances),
+            )
+            seen_occurrence[key] = {
+                p.occurrence_id for p in record.provenances if p.occurrence_id
+            }
+            continue
+
+        grouped[key].is_live = grouped[key].is_live or record.is_live
+        grouped[key].is_deleted = grouped[key].is_deleted or record.is_deleted
+        _merge_provenance(grouped[key], record, seen_occurrence[key])
+
+    return list(grouped.values())
+
+
+def aggregate_record_confidence(provenances: list[Provenance]) -> float:
+    """Compute record-level confidence.
+
+    ``Provenance.source`` is authoritative over ``NormalizedRecord.is_live``.
+    If any provenance is LIVE, the record confidence is 1.0; otherwise the
+    maximum provenance confidence is used.
+    """
+    if any(provenance.source == RecordSource.LIVE for provenance in provenances):
+        return 1.0
+    if not provenances:
+        return 0.0
+    return max(provenance.confidence for provenance in provenances)
+
+
+def finalize_records(
+    records: list[NormalizedRecord],
+    source_sha256: str,
+) -> list[NormalizedRecord]:
+    """Aggregate records and assign deterministic IDs and confidence."""
+    aggregated = _aggregate_records(records)
+    finalized: list[NormalizedRecord] = []
+    for record in aggregated:
+        record.record_id = derive_record_id(
+            source_sha256=source_sha256,
+            table_name=record.table_name,
+            row_id=record.row_id,
+            columns=record.columns,
+        )
+        record.confidence = aggregate_record_confidence(record.provenances)
+        record.is_live = any(
+            provenance.source == RecordSource.LIVE for provenance in record.provenances
+        )
+        record.is_deleted = any(
+            provenance.source != RecordSource.LIVE for provenance in record.provenances
+        )
+        finalized.append(record)
+    return finalized
