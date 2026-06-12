@@ -152,6 +152,7 @@ flowchart LR
 
 - いずれかの provenance が `live` → レコード confidence = **1.0**
 - それ以外 → 各 provenance confidence の **最大値**
+- **`is_live` / `is_deleted`**: live provenance が1つでもあれば `is_live=True`, `is_deleted=False`。削除痕は `provenances` に残る。
 
 ## Signature（列型フィンガープリント）
 
