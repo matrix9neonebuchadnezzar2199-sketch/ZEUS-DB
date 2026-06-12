@@ -121,3 +121,26 @@ def test_finalize_records_assigns_record_id_and_confidence():
     assert len(finalized) == 1
     assert finalized[0].record_id
     assert finalized[0].confidence == 0.85
+    assert finalized[0].is_live is False
+    assert finalized[0].is_deleted is True
+
+
+def test_finalize_live_with_deletion_trace_is_not_deleted():
+    live = _sample_record(
+        page_number=1,
+        file_offset=10,
+        source=RecordSource.LIVE,
+        occurrence_id="live-1",
+    )
+    trace = _sample_record(
+        page_number=2,
+        file_offset=200,
+        source=RecordSource.FREEBLOCK,
+        occurrence_id="fb-1",
+    )
+    finalized = finalize_records([live, trace], "hash123")
+    assert len(finalized) == 1
+    assert len(finalized[0].provenances) == 2
+    assert finalized[0].is_live is True
+    assert finalized[0].is_deleted is False
+    assert finalized[0].confidence == 1.0

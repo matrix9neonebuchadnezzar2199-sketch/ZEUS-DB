@@ -254,8 +254,6 @@ def finalize_records(
         record.is_live = any(
             provenance.source == RecordSource.LIVE for provenance in record.provenances
         )
-        record.is_deleted = any(
-            provenance.source != RecordSource.LIVE for provenance in record.provenances
-        )
+        record.is_deleted = not record.is_live
         finalized.append(record)
     return finalized
