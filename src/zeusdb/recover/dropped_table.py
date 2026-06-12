@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from zeusdb.identity import occurrence_id as derive_occurrence_id
 from zeusdb.models import NormalizedRecord, Provenance, RecordSource
 
 _CREATE_TABLE_RE = re.compile(
@@ -16,6 +17,8 @@ _CREATE_TABLE_RE = re.compile(
 def recover_dropped_table_artifacts(
     database_path: str | Path,
     page_size: int,
+    *,
+    source_sha256: str,
 ) -> list[NormalizedRecord]:
     """Scan database pages for CREATE TABLE SQL remnants (dropped table hints)."""
     records: list[NormalizedRecord] = []
@@ -25,20 +28,30 @@ def recover_dropped_table_artifacts(
         page_data = raw[page_offset : page_offset + page_size]
         for match in _CREATE_TABLE_RE.finditer(page_data):
             table_name = match.group(1).decode("utf-8", errors="replace")
+            file_offset = page_offset + match.start()
+            provenance = Provenance(
+                source=RecordSource.DROPPED_TABLE,
+                algorithm="fqlite-dropped-table-scan",
+                page_number=page_index + 1,
+                file_offset=file_offset,
+                confidence=0.6,
+                notes="CREATE TABLE fragment found outside live schema",
+                occurrence_id=derive_occurrence_id(
+                    source_sha256=source_sha256,
+                    source=RecordSource.DROPPED_TABLE.value,
+                    page_number=page_index + 1,
+                    file_offset=file_offset,
+                    version=None,
+                    row_id=None,
+                ),
+            )
             records.append(
                 NormalizedRecord(
                     table_name=table_name,
                     columns={"sql_fragment": match.group(0).decode("utf-8", errors="replace")},
                     is_live=False,
                     is_deleted=True,
-                    provenance=Provenance(
-                        source=RecordSource.DROPPED_TABLE,
-                        algorithm="fqlite-dropped-table-scan",
-                        page_number=page_index + 1,
-                        file_offset=page_offset + match.start(),
-                        confidence=0.6,
-                        notes="CREATE TABLE fragment found outside live schema",
-                    ),
+                    provenance=provenance,
                 )
             )
     return records

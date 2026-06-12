@@ -11,6 +11,8 @@ from sqlite_dissect.file.journal.jounal import RollbackJournal
 from sqlite_dissect.file.wal.wal import WriteAheadLog
 from sqlite_dissect.version_history import VersionHistory
 
+from zeusdb.identity import file_sha256
+
 
 @dataclass(slots=True)
 class ArtifactBundle:
@@ -23,6 +25,9 @@ class ArtifactBundle:
     journal_path: Path | None
     rollback_journal: RollbackJournal | None
     version_history: VersionHistory
+    source_sha256: str
+    wal_sha256: str | None = None
+    journal_sha256: str | None = None
 
     @property
     def page_size(self) -> int:
@@ -71,6 +76,8 @@ def open_artifacts(
         msg = f"Database not found: {db_path}"
         raise FileNotFoundError(msg)
 
+    source_sha256 = file_sha256(db_path)
+
     resolved_wal = Path(wal_path).resolve() if wal_path else None
     resolved_journal = Path(journal_path).resolve() if journal_path else None
     if resolved_wal is None or resolved_journal is None:
@@ -90,6 +97,8 @@ def open_artifacts(
     )
     rollback_journal = RollbackJournal(str(resolved_journal)) if resolved_journal else None
     version_history = VersionHistory(database, write_ahead_log)
+    wal_sha256 = file_sha256(resolved_wal) if resolved_wal else None
+    journal_sha256 = file_sha256(resolved_journal) if resolved_journal else None
 
     return ArtifactBundle(
         database_path=db_path,
@@ -99,6 +108,9 @@ def open_artifacts(
         journal_path=resolved_journal,
         rollback_journal=rollback_journal,
         version_history=version_history,
+        source_sha256=source_sha256,
+        wal_sha256=wal_sha256,
+        journal_sha256=journal_sha256,
     )
 
 

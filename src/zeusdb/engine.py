@@ -76,7 +76,12 @@ class ForensicEngine:
                 )
             )
         if opts.salvage:
-            records.extend(salvage_raw_pages(bundle.database_path))
+            records.extend(
+                salvage_raw_pages(
+                    bundle.database_path,
+                    source_sha256=bundle.source_sha256,
+                )
+            )
 
         return AnalysisResult(
             database_path=str(bundle.database_path),
@@ -94,5 +99,8 @@ class ForensicEngine:
                 "salvage_enabled": opts.salvage,
                 "engine": "ZEUS-DB",
                 "core": "sqlite-dissect",
+                "source_sha256": bundle.source_sha256,
+                "wal_sha256": bundle.wal_sha256,
+                "journal_sha256": bundle.journal_sha256,
             },
         )

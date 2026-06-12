@@ -17,6 +17,7 @@ def recover_freelist_pages(
     signature: Any,
     *,
     text_encoding: str = "UTF-8",
+    source_sha256: str,
 ) -> list[NormalizedRecord]:
     """Carve deleted records from freelist trunk and leaf pages."""
     records: list[NormalizedRecord] = []
@@ -33,6 +34,7 @@ def recover_freelist_pages(
                         master_schema_entry,
                         signature,
                         text_encoding=text_encoding,
+                        source_sha256=source_sha256,
                     )
                 )
             trunk_number = trunk_page.next_freelist_trunk_page_number
@@ -44,6 +46,7 @@ def recover_freelist_pages(
                     master_schema_entry,
                     signature,
                     text_encoding=text_encoding,
+                    source_sha256=source_sha256,
                 )
             )
             break
@@ -60,6 +63,7 @@ def _carve_freelist_page(
     signature: Any,
     *,
     text_encoding: str = "UTF-8",
+    source_sha256: str,
 ) -> list[NormalizedRecord]:
     """Carve unallocated bytes on a freelist page."""
     records: list[NormalizedRecord] = []
@@ -86,6 +90,7 @@ def _carve_freelist_page(
                 is_live=False,
                 is_deleted=True,
                 text_encoding=text_encoding,
+                source_sha256=source_sha256,
                 version=getattr(version, "version_number", 0),
                 confidence=0.75,
             )

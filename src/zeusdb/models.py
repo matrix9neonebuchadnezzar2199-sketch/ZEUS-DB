@@ -33,6 +33,7 @@ class Provenance:
     confidence: float = 1.0
     cell_location: str | None = None
     notes: str | None = None
+    occurrence_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize provenance for JSON export."""

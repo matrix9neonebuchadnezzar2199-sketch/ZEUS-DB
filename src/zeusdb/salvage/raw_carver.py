@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from zeusdb.identity import occurrence_id as derive_occurrence_id
 from zeusdb.models import NormalizedRecord, Provenance, RecordSource
 
 
 def salvage_raw_pages(
     database_path: str | Path,
     *,
+    source_sha256: str,
     page_size: int = 4096,
     min_nonzero_ratio: float = 0.01,
 ) -> list[NormalizedRecord]:
@@ -56,6 +58,14 @@ def salvage_raw_pages(
                     file_offset=offset,
                     confidence=min(0.35 + ratio * 0.15, 0.5),
                     notes="Non-empty page region salvaged from raw file",
+                    occurrence_id=derive_occurrence_id(
+                        source_sha256=source_sha256,
+                        source=RecordSource.SALVAGE.value,
+                        page_number=page_index + 1,
+                        file_offset=offset,
+                        version=None,
+                        row_id=None,
+                    ),
                 ),
             )
         )

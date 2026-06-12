@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 from typing import Any
 
+from zeusdb.identity import occurrence_id as derive_occurrence_id
 from zeusdb.models import NormalizedRecord, Provenance, RecordSource
 
 _BLOB_TYPE = "blob"
@@ -119,6 +120,7 @@ def cell_to_record(
     algorithm: str,
     is_live: bool,
     is_deleted: bool,
+    source_sha256: str,
     text_encoding: str = "UTF-8",
     version: int | None = None,
     confidence: float = 1.0,
@@ -129,19 +131,29 @@ def cell_to_record(
     location = getattr(getattr(cell, "location", None), "name", None)
     row_id = getattr(cell, "row_id", None)
 
+    provenance = Provenance(
+        source=source,
+        algorithm=algorithm,
+        page_number=page_number,
+        file_offset=file_offset,
+        version=version,
+        confidence=confidence,
+        cell_location=location,
+        occurrence_id=derive_occurrence_id(
+            source_sha256=source_sha256,
+            source=source.value,
+            page_number=page_number,
+            file_offset=file_offset,
+            version=version,
+            row_id=row_id,
+        ),
+    )
+
     return NormalizedRecord(
         table_name=master_schema_entry.name,
         row_id=row_id,
         columns=_column_map(cell, master_schema_entry, text_encoding=text_encoding),
         is_live=is_live,
         is_deleted=is_deleted,
-        provenance=Provenance(
-            source=source,
-            algorithm=algorithm,
-            page_number=page_number,
-            file_offset=file_offset,
-            version=version,
-            confidence=confidence,
-            cell_location=location,
-        ),
+        provenance=provenance,
     )

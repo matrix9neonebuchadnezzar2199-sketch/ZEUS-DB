@@ -46,6 +46,7 @@ def recover_live_records(
     records: list[NormalizedRecord] = []
     base_version = bundle.version_history.versions[BASE_VERSION_NUMBER]
     text_encoding = bundle.encoding
+    source_sha256 = bundle.source_sha256
 
     for entry in base_version.master_schema.master_schema_entries:
         if entry.row_type != MASTER_SCHEMA_ROW_TYPE.TABLE:
@@ -70,6 +71,7 @@ def recover_live_records(
                     is_live=True,
                     is_deleted=False,
                     text_encoding=text_encoding,
+                    source_sha256=source_sha256,
                     version=BASE_VERSION_NUMBER,
                 )
             )
@@ -87,6 +89,7 @@ def recover_deleted_records(
     records: list[NormalizedRecord] = []
     base_version = bundle.version_history.versions[BASE_VERSION_NUMBER]
     text_encoding = bundle.encoding
+    source_sha256 = bundle.source_sha256
 
     for entry in base_version.master_schema.master_schema_entries:
         if entry.row_type != MASTER_SCHEMA_ROW_TYPE.TABLE:
@@ -102,15 +105,27 @@ def recover_deleted_records(
         if signature is None:
             continue
 
-        records.extend(recover_freeblocks(base_version, entry, signature, text_encoding=text_encoding))
-        records.extend(recover_unallocated(base_version, entry, signature, text_encoding=text_encoding))
+        records.extend(recover_freeblocks(base_version, entry, signature, text_encoding=text_encoding, source_sha256=source_sha256))
+        records.extend(recover_unallocated(base_version, entry, signature, text_encoding=text_encoding, source_sha256=source_sha256))
         if carve_freelist:
             records.extend(
-                recover_freelist_pages(base_version, entry, signature, text_encoding=text_encoding)
+                recover_freelist_pages(
+                    base_version,
+                    entry,
+                    signature,
+                    text_encoding=text_encoding,
+                    source_sha256=source_sha256,
+                )
             )
         if boyer_moore:
             records.extend(
-                carve_pages_boyer_moore(base_version, entry, signature, text_encoding=text_encoding)
+                carve_pages_boyer_moore(
+                    base_version,
+                    entry,
+                    signature,
+                    text_encoding=text_encoding,
+                    source_sha256=source_sha256,
+                )
             )
 
         parser = VersionHistoryParser(
@@ -132,13 +147,18 @@ def recover_deleted_records(
                         is_live=False,
                         is_deleted=True,
                         text_encoding=text_encoding,
+                        source_sha256=source_sha256,
                         version=commit.version_number,
                         confidence=0.9,
                     )
                 )
 
     records.extend(
-        recover_dropped_table_artifacts(bundle.database_path, bundle.page_size)
+        recover_dropped_table_artifacts(
+            bundle.database_path,
+            bundle.page_size,
+            source_sha256=bundle.source_sha256,
+        )
     )
     return _dedupe_records(records)
 

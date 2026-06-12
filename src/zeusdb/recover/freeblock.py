@@ -19,6 +19,7 @@ def recover_freeblocks(
     signature: Any,
     *,
     text_encoding: str = "UTF-8",
+    source_sha256: str,
 ) -> list[NormalizedRecord]:
     """Recover deleted records from freeblock chains on b-tree pages."""
     records: list[NormalizedRecord] = []
@@ -42,6 +43,7 @@ def recover_freeblocks(
                     is_live=False,
                     is_deleted=True,
                     text_encoding=text_encoding,
+                    source_sha256=source_sha256,
                     version=getattr(version, "version_number", 0),
                     confidence=0.85,
                 )
