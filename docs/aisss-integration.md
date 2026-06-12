@@ -1,5 +1,7 @@
 # AISSS Integration
 
+ZEUS-DB 本体のアルゴリズム解説は [00-index.md](00-index.md) を参照。
+
 ## Service
 
 - Container name: `zeus-db`

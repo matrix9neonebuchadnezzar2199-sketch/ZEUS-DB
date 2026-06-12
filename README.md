@@ -1,34 +1,67 @@
 # ZEUS-DB
 
-Unified SQLite forensic analysis engine for lab environments.
+**ZEUS-DB**（*ZEUS Database Forensic Engine*）は、lab 環境向けの統合 SQLite フォレンジック解析エンジンです。
 
-Built on [DC3 sqlite-dissect](https://github.com/dod-cyber-crime-center/sqlite-dissect) with additional recovery algorithms inspired by bring2lite, fqlite, xsqlite, undark, and sqbrite (concept reimplementation only).
+[DC3 sqlite-dissect](https://github.com/dod-cyber-crime-center/sqlite-dissect) をコアに、bring2lite / fqlite / undark・sqbrite 等の **概念・アルゴリズムを再実装で統合** しています（fqlite Java コードは非流用）。
 
-## Features
+## できること
 
-- Read-only parsing of SQLite database, WAL, and rollback journal
-- Version-timeline across WAL commit records
-- Deleted record recovery: freeblocks, unallocated space, freelist pages
-- Schema fingerprint carving (Boyer-Moore page scan)
-- Dropped table artifact scanning
-- Corrupt DB salvage (raw page carving)
-- JSON / TSV / CASE export with provenance metadata
-- HTTP service for AISSS worker integration
+- 本体 DB + WAL + rollback journal の **read-only** 解析
+- WAL コミット単位の **バージョンタイムライン**
+- 削除レコード復元: **freeblock / unallocated / freelist / Boyer-Moore / dropped table**
+- 破損 DB 向け **raw page salvage**（`--salvage`）
+- **provenance 付き** JSON / TSV / CASE 出力（報告書向け）
+- FastAPI サービス + [AISSS](https://github.com/matrix9neonebuchadnezzar2199-sketch/Aisss) worker 連携
 
-## Quick start
+## クイックスタート
 
 ```powershell
 uv sync --all-groups
-uv run zeusdb analyze tests/fixtures/sample.db --json output.json --carve
+uv run zeusdb analyze sample.db --carve --json output.json
 uv run pytest
 ```
 
-## HTTP service
+## HTTP サービス
 
 ```powershell
 uv run uvicorn service.app:app --host 0.0.0.0 --port 8090
+# GET  /health
+# POST /analyze/upload
 ```
 
-## License
+## ドキュメント
 
-MIT (ZEUS-DB). Third-party: see `THIRD_PARTY_NOTICES.md` (sqlite-dissect DC3 license).
+| ドキュメント | 内容 |
+|-------------|------|
+| [docs/00-index.md](docs/00-index.md) | ドキュメント索引 |
+| [docs/01-algorithms-overview.md](docs/01-algorithms-overview.md) | **アルゴリズム解説**（削除領域・パイプライン・各 Recovery 手法） |
+| [docs/02-source-tools-mapping.md](docs/02-source-tools-mapping.md) | **吸収元ツール対応表**（DC3 / bring2lite / fqlite 等） |
+| [docs/03-architecture.md](docs/03-architecture.md) | レイヤ構成・JSON 契約・CLI |
+| [docs/aisss-integration.md](docs/aisss-integration.md) | AISSS Compose / Worker 連携 |
+
+## アーキテクチャ（概要）
+
+```
+DB/WAL/journal → Reader (sqlite-dissect)
+              → Version (WAL 版タイムライン)
+              → Recovery (freeblock/unallocated/freelist/BM/…)
+              → Output (provenance 付き JSON/TSV/CASE)
+              → CLI / HTTP / AISSS
+```
+
+## 吸収元ツール（要約）
+
+| ソース | 形態 | 役割 |
+|--------|------|------|
+| **sqlite-dissect (DC3)** | コード vendor | Reader / Version / Signature / Carver 基盤 |
+| **bring2lite (DFRWS2019)** | 概念 | freeblock / unallocated / freelist |
+| **fqlite (論文)** | 概念再実装 | Boyer-Moore carver、dropped table |
+| **undark / sqbrite** | 概念再実装 | `--salvage` raw page scan |
+| **walitean** | Version Layer に包含 | WAL タイムライン |
+
+詳細は [docs/02-source-tools-mapping.md](docs/02-source-tools-mapping.md) を参照。
+
+## ライセンス
+
+- ZEUS-DB: MIT
+- sqlite-dissect: DC3 Open Source License — [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
