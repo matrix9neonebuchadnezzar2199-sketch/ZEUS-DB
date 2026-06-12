@@ -143,12 +143,27 @@ def recover_deleted_records(
     return _dedupe_records(records)
 
 
+def _dedupe_key(record: NormalizedRecord) -> str:
+    """Build a stable dedupe fingerprint including physical location."""
+    provenance = record.provenance
+    columns_json = json.dumps(record.columns, sort_keys=True, default=str)
+    return (
+        f"{record.table_name}|{record.row_id}|{columns_json}|"
+        f"{provenance.source}|{provenance.page_number}|"
+        f"{provenance.file_offset}|{provenance.version}"
+    )
+
+
 def _dedupe_records(records: list[NormalizedRecord]) -> list[NormalizedRecord]:
-    """Remove duplicate recovered rows by content fingerprint."""
+    """Remove duplicate recovered rows with identical content and physical location.
+
+    TODO(v1.1): aggregate multiple provenance locations for identical content
+    instead of keeping separate records.
+    """
     seen: set[str] = set()
     unique: list[NormalizedRecord] = []
     for record in records:
-        key = f"{record.table_name}|{record.row_id}|{sorted(record.columns.items())}|{record.provenance.source}"
+        key = _dedupe_key(record)
         if key in seen:
             continue
         seen.add(key)
