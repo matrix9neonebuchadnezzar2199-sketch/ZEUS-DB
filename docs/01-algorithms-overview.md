@@ -12,7 +12,7 @@ SQLite は `DELETE` しても、多くの場合 **セル本体のバイト列は
 | **Unallocated space** | セルポインタ配列とコンテンツ領域の間の隙間。defrag 後の断片もここに |
 | **Freelist page** | 再利用待ちページ。過去のレコード断片が残ることがある |
 | **WAL (`-wal`)** | 本体 DB に checkpoint されていない最新書き込み |
-| **Rollback journal (`-journal`)** | WAL 以前や特殊状況下の変更履歴。**v1 では存在検出とタイムライン注記のみ**（journal からのカービングは未実装） |
+| **Rollback journal (`-journal`)** | DELETE/PERSIST 等の journal mode で残る before-image ページ。`RollBackJournalCarver` で Signature carve |
 
 ## 処理パイプライン
 
@@ -21,7 +21,7 @@ SQLite は `DELETE` しても、多くの場合 **セル本体のバイト列は
 1. **Reader** — 本体 DB + 自動検出した `-wal` / `-journal` を read-only で開く
 2. **Version** — WAL フレームをコミット単位の版（version 0, 1, 2…）としてタイムライン化
 3. **Live 抽出** — 現存行を b-tree リーフから列挙
-4. **Recovery**（`--carve` 時）— freeblock / unallocated / freelist / Boyer-Moore / WAL 版 carve / dropped table
+4. **Recovery**（`--carve` 時）— freeblock / unallocated / freelist / Boyer-Moore / rollback journal / WAL 版 carve / dropped table
 5. **Salvage**（`--salvage` 時）— 破損 DB 向け raw page スキャン
 6. **Output** — provenance 付き JSON / TSV / CASE
 
@@ -42,12 +42,14 @@ flowchart LR
     UA[unallocated]
     FL[freelist]
     BM[Boyer-Moore]
+    RJ[journal carve]
     DT[dropped table]
   end
   DB --> Reader
   WAL --> Version
   Reader --> recover
   Version --> recover
+  JOURNAL --> recover
   Sig --> recover
 ```
 
@@ -94,6 +96,14 @@ flowchart LR
 - **実装**: `recover/carver.py`
 - **algorithm**: `fqlite-boyer-moore+sqlite-dissect`
 - **confidence**: 0.70
+
+### Rollback journal carve（sqlite-dissect RollBackJournalCarver）
+
+- **対象**: `-journal` サイドカー内の before-image ページ（WAL と排他 — 同時存在は拒否）
+- **要点**: journal ページレコードヘッダの DB ページ番号を `page_number` に、carved cell の `file_offset` は **journal ファイル内バイトオフセット**（DB 本体オフセットではない）
+- **実装**: `recover/journal.py` → `RollBackJournalCarver.carve`
+- **algorithm**: `sqlite-dissect-journal-carve`
+- **confidence**: 0.90（WAL 版 carve と同じ暫定値 — before-image のため高信頼だがベンチマーク未整備）
 
 ### WAL 版 carve（sqlite-dissect VersionHistoryParser）
 
@@ -168,11 +178,11 @@ flowchart LR
 
 | フィールド | 意味 |
 |-----------|------|
-| `source` | `live` / `freeblock` / `unallocated` / `freelist` / `carved` / `dropped_table` / `salvage` |
+| `source` | `live` / `freeblock` / `unallocated` / `freelist` / `journal` / `carved` / `dropped_table` / `salvage` |
 | `algorithm` | 使用した手法の識別子（報告書引用用） |
-| `page_number` | ページ番号 |
-| `file_offset` | ファイル内オフセット |
-| `version` | WAL 版番号（0 = 本体 DB） |
+| `page_number` | DB ページ番号（journal 由来も before-image の対象 DB ページ） |
+| `file_offset` | ファイル内バイトオフセット（journal 由来は **`-journal` ファイル内**） |
+| `version` | WAL 版番号（0 = 本体 DB）。journal carve は vendor 既定で `-1` |
 | `confidence` | 出現別信頼度（0.0〜1.0） |
 | `occurrence_id` | 物理出現の決定論的 UUID（schema 1.1） |
 

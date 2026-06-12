@@ -6,9 +6,9 @@
 
 ## できること
 
-- 本体 DB + WAL の **read-only** 解析（rollback journal は **存在検出のみ** — カービングは未実装）
+- 本体 DB + WAL / rollback journal の **read-only** 解析（`-wal` と `-journal` は排他）
 - WAL コミット単位の **バージョンタイムライン**
-- 削除レコード復元: **freeblock / unallocated / freelist / Boyer-Moore / dropped table**
+- 削除レコード復元: **freeblock / unallocated / freelist / Boyer-Moore / rollback journal / dropped table**
 - 破損 DB 向け **raw page salvage**（`--salvage`）— **トリアージ指標**（セル復元ではない）
 - **provenance 付き** JSON / TSV / CASE 出力（報告書向け・補助検証向け）
 - FastAPI サービス + [AISSS](https://github.com/matrix9neonebuchadnezzar2199-sketch/Aisss) worker 連携

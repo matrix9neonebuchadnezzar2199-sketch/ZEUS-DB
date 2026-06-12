@@ -7,7 +7,7 @@
   ↓
 Reader Layer     … sqlite-dissect fork（read-only パース）
   ↓
-Version Layer    … WAL を commit 単位で版管理（journal は存在検出のみ）
+Version Layer    … WAL を commit 単位で版管理（rollback journal は `-journal` carve）
   ↓
 Recovery Layer   … 削除レコード復元（複数アルゴリズム）
   ↓
